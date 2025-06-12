@@ -1,0 +1,33 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment directory (e.g., virtualenv)
+pose-env/
+
+# Checkpoints and trained weights
+ckpts/
+resnet_trained_ckpts/
+vit_trained_ckpts/
+
+# Logs and experiment outputs
+logs/
+
+# Data files (assumes you want to ignore all datasets)
+data/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings (if applicable)
+.vscode/
+
+# macOS/Unix hidden files
+.DS_Store
+
+# Compiled C/C++ or shared object files
+*.o
+*.out
+*.a
+*.dylib

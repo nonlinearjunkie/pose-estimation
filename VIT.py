@@ -128,41 +128,39 @@ class FPN(nn.Module):
         self.backbone   = backbone
         self.add_p6     = add_p6
 
-        self.lat_convs  = nn.ModuleList(
-            [nn.Conv2d(in_channels, out_channels, 1) for _ in range(4)]
-        )
-        
-        self.smooth_convs = nn.ModuleList(
-            [nn.Conv2d(out_channels, out_channels, 3, padding=1) for _ in range(4)]
-        )
+        self.lateral_convs = nn.ModuleList([
+            nn.Conv2d(in_channels, out_channels, kernel_size=1) for _ in range(4)
+        ])
+        self.fpn_convs = nn.ModuleList([
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1) for _ in range(4)
+        ])
 
         if add_p6:
             self.p6 = nn.MaxPool2d(kernel_size=1, stride=2)
 
     def forward(self, x):
-        c2, c3, c4, c5 = self.backbone.vit(x)
+        c2, c3, c4, c5 = self.backbone(x)
 
-        # ---------- lateral ↓256 ----------
-        p5 = self.lat_convs[3](c5)
-        p4 = self.lat_convs[2](c4) + p5
-        p3 = self.lat_convs[1](c3) + p4
-        p2 = self.lat_convs[0](c2) + p3
+        feats = [c2, c3, c4, c5]
 
-        # ---------- 3×3 smooth ----------
-        p5 = self.smooth_convs[3](p5)      # stride 16
-        p4 = self.smooth_convs[2](p4)      # stride 16
-        p3 = self.smooth_convs[1](p3)      # stride 16
-        p2 = self.smooth_convs[0](p2)      # stride 16
+        # Reduce channels
+        feats = [l_conv(f) for f, l_conv in zip(feats, self.lateral_convs)]
+        
+        # FPN top-down pathway
+        P5 = F.max_pool2d(feats[3], kernel_size=1, stride=2)
+        P4 = feats[2] + F.interpolate(P5, scale_factor=2, mode='nearest')
+        P3 = F.interpolate(feats[1], scale_factor=2, mode="nearest") + F.interpolate(P4, scale_factor=2, mode='nearest')
+        P2 = F.interpolate(feats[0], scale_factor=4, mode="nearest") + F.interpolate(P3, scale_factor=2, mode='nearest')
 
-        p4_out = p4                                           # stride 16
-        p3_out = F.interpolate(p4_out, scale_factor=2, mode='nearest')  # 8
-        p2_out = F.interpolate(p3_out, scale_factor=2, mode='nearest')  # 4
-        p5_out = F.max_pool2d(p4_out, kernel_size=1, stride=2)          # 32
-        outs   = [p2_out, p3_out, p4_out, p5_out]
+        # Smoothing convs
+        P5 = self.fpn_convs[3](P5)
+        P4 = self.fpn_convs[2](P4)
+        P3 = self.fpn_convs[1](P3)
+        P2 = self.fpn_convs[0](P2)
 
-
+        outs   = [P2, P3, P4, P5]
         if self.add_p6:                                       # 64
-            outs.append(self.p6(p5_out))
+            outs.append(self.p6(P5))
 
         return outs        # list: [P2,P3,P4,P5,(P6)]
 
@@ -1078,6 +1076,7 @@ def replace_bn_with_gn(model, config):
 class ViTBackbone(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.backbone = config.BACKBONE
         config.ViTBACKBONE = config.BACKBONE
         self.vit = timm.create_model(
             model_name=config.ViTBACKBONE,
@@ -1088,7 +1087,10 @@ class ViTBackbone(nn.Module):
             )
         
     def forward(self, x):
-        return self.vit(x)
+        out =  self.vit(x)
+        if self.backbone == "eva02_large_patch14_448.mim_m38m_ft_in22k_in1k":
+            out = [F.interpolate(x, size=(40, 40), mode='bilinear', align_corners=False) for x in out]
+        return out
 
 ############################################################
 #  MaskRCNN Class

@@ -39,7 +39,7 @@ class RCNNTrainConfig(Config):
     TRAIN_ROIS_PER_IMAGE = 64
 
     # Use a small epoch since the data is simple
-    STEPS_PER_EPOCH = 1000
+    STEPS_PER_EPOCH = 800
 
     # use small validation steps since the epoch is small
     VALIDATION_STEPS = 50
@@ -251,14 +251,14 @@ if __name__=="__main__":
         print("Training network heads")
         model.train_model(real_train_data, val_data,
                     learning_rate=config.LEARNING_RATE,
-                    epochs=100,
+                    epochs=2,
                     layers='heads')
     
         # Training - Stage 2
         print("Training network all layers")
         model.train_model(real_train_data, val_data,
                     learning_rate=config.LEARNING_RATE/4,
-                    epochs=200,
+                    epochs=2,
                     layers='all')
 
 

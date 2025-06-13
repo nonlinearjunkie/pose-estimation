@@ -1550,7 +1550,8 @@ class MaskRCNNViT(nn.Module):
             visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
-            if epoch % 5 == 0 or epoch == epochs:
+            if epoch == epochs or epoch==epochs-1:
+                print("Saving model......")
                 torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
 
         self.epoch = epochs
